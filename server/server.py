@@ -9,12 +9,13 @@ totalClients=[]
 sel = selectors.DefaultSelector()
 
 def accept_connection(sock):
-    # Should be ready to ready, because the server socket was registered to monitor for read events
+    # Should be ready to read, because the server socket was registered to monitor for read events
     conn, addr = sock.accept()
     print("Connected from: " + str(addr[0]) + ":" + str(addr[1]))
     conn.setblocking(False)
     totalClients.append(conn)
     # Create an object to hold the needed data
+    # Data is already initialized as byte strings
     data = types.SimpleNamespace(addr=addr, inbound=b"", outbound=b"")
     # Monitor for read and write events
     events = selectors.EVENT_READ | selectors.EVENT_WRITE
@@ -25,6 +26,7 @@ def service_connection(key, mask):
     data = key.data
 
     if mask & selectors.EVENT_READ:
+        print("Receiving data")
         receive = sock.recv(buffSize)
         if receive:
             # Add data to data object to be sent later
@@ -37,20 +39,25 @@ def service_connection(key, mask):
 
     if mask & selectors.EVENT_WRITE:
         if data.outbound:
+            print("Sending data")
+            sent=None
             # Sends the data and returns the number of bytes sent
             for client in totalClients:
                 if client != sock:
+                    print(client)
                     sent = client.send(data.outbound)
             # Discard the sent data from the buffer
-            data.outbound = data.outbound[sent:]
+            print(sent)
+            if sent:
+                data.outbound = data.outbound[sent:]
+            else:
+                data.outbound = b""
 
 def tcpserver():
     sckt = socket.socket(family=socket.AF_INET, type=socket.SOCK_STREAM) 
     sckt.setsockopt(socket.SOL_SOCKET,socket.SO_REUSEADDR,1)
     sckt.bind((localIP, serverPort))
     sckt.listen()
-    # Set the socket to non-blocking mode
-    sckt.setblocking(False)
     print("In server, socket listening...")
 
     # Monitor the socket for read events
