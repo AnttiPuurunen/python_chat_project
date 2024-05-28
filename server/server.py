@@ -28,7 +28,23 @@ def service_connection(key, mask):
     if mask & selectors.EVENT_READ:
         print("Receiving data")
         receive = sock.recv(buffSize)
-        if receive:
+        name_split = receive.decode()
+        name_split.split(": ")
+        isleaving = name_split[1]
+        name = name_split[0]
+        print(len(name_split))
+        if len(name_split) == 1:
+            # A new client joined, notify everybody else
+            userjoined = f"{name} joined the chat room"
+            data.outbound += userjoined.encode()
+        elif isleaving == "quit":
+            # The client has closed the client program, close the sock
+            # Send everyone else notification that they left
+            userleft = f"{name} has left the chat room"
+            data.outbound += userleft.encode()
+            sel.unregister(sock)
+            sock.close()
+        elif receive:
             # Add data to data object to be sent later
             data.outbound += receive
         else:
@@ -44,7 +60,6 @@ def service_connection(key, mask):
             # Sends the data and returns the number of bytes sent
             for client in totalClients:
                 if client != sock:
-                    print(client)
                     sent = client.send(data.outbound)
             # Discard the sent data from the buffer
             print(sent)
